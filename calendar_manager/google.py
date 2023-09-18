@@ -3,10 +3,11 @@
 import datetime
 import json
 
-import os.path
+import os.path as path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.auth.exceptions import RefreshError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
@@ -174,12 +175,16 @@ class GoogleClient:
     def __init__(self, token_file, credentials_file):
         # If there are no (valid) credentials available, let the user log in.
         creds = None
-        if os.path.exists(token_file):
+        if path.exists(token_file):
             creds = Credentials.from_authorized_user_file(token_file, SCOPES)
 
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
+                try:
+                    creds.refresh(Request())
+                except RefreshError:
+                    flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
+                    creds = flow.run_local_server(port=0)
             else:
                 if not path.exists(credentials_file):
                     raise ValueError(
